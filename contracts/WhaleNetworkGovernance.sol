@@ -1,208 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-library SafeMath {
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, "SafeMath: addition overflow");
+import "@openzeppelin/contracts/access/Ownable.sol";
+// TODO: Remove this (not required in solidity 0.8)
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 
-        return c;
-    }
 
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return sub(a, b, "SafeMath: subtraction overflow");
-    }
-
-    function sub(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b <= a, errorMessage);
-        uint256 c = a - b;
-
-        return c;
-    }
-
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-        // benefit is lost if 'b' is also tested.
-        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
-        if (a == 0) {
-            return 0;
-        }
-
-        uint256 c = a * b;
-        require(c / a == b, "SafeMath: multiplication overflow");
-
-        return c;
-    }
-
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return div(a, b, "SafeMath: division by zero");
-    }
-
-    function div(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b > 0, errorMessage);
-        uint256 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-
-        return c;
-    }
-
-    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-        return mod(a, b, "SafeMath: modulo by zero");
-    }
-
-    function mod(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b != 0, errorMessage);
-        return a % b;
-    }
-}
-
-interface IERC20 {
-    /**
-     * @dev Returns the amount of tokens in existence.
-     */
-    function totalSupply() external view returns (uint256);
-
-    /**
-     * @dev Returns the amount of tokens owned by `account`.
-     */
-    function balanceOf(address account) external view returns (uint256);
-
-    /**
-     * @dev Moves `amount` tokens from the caller's account to `recipient`.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transfer(address recipient, uint256 amount)
-        external
-        returns (bool);
-
-    /**
-     * @dev Returns the remaining number of tokens that `spender` will be
-     * allowed to spend on behalf of `owner` through {transferFrom}. This is
-     * zero by default.
-     *
-     * This value changes when {approve} or {transferFrom} are called.
-     */
-    function allowance(address owner, address spender)
-        external
-        view
-        returns (uint256);
-
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * IMPORTANT: Beware that changing an allowance with this method brings the risk
-     * that someone may use both the old and the new allowance by unfortunate
-     * transaction ordering. One possible solution to mitigate this race
-     * condition is to first reduce the spender's allowance to 0 and set the
-     * desired value afterwards:
-     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Moves `amount` tokens from `sender` to `recipient` using the
-     * allowance mechanism. `amount` is then deducted from the caller's
-     * allowance.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    /**
-     * @dev Emitted when `value` tokens are moved from one account (`from`) to
-     * another (`to`).
-     *
-     * Note that `value` may be zero.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    /**
-     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
-     * a call to {approve}. `value` is the new allowance.
-     */
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 value
-    );
-}
-
-abstract contract Context {
-    function _msgSender() internal view virtual returns (address) {
-        return msg.sender;
-    }
-
-    function _msgData() internal view virtual returns (bytes calldata) {
-        return msg.data;
-    }
-}
-
-abstract contract Ownable is Context {
-    address private _owner;
-
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
-
-    constructor() {
-        _setOwner(_msgSender());
-    }
-
-    function owner() public view virtual returns (address) {
-        return _owner;
-    }
-
-    modifier onlyOwner() {
-        require(owner() == _msgSender(), "Ownable: caller is not the owner");
-        _;
-    }
-
-    function renounceOwnership() public virtual onlyOwner {
-        _setOwner(address(0));
-    }
-
-    function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(
-            newOwner != address(0),
-            "Ownable: new owner is the zero address"
-        );
-        _setOwner(newOwner);
-    }
-
-    function _setOwner(address newOwner) private {
-        address oldOwner = _owner;
-        _owner = newOwner;
-        emit OwnershipTransferred(oldOwner, newOwner);
-    }
-}
-
-contract WhaleNetworkGovernance is Context, Ownable {
+contract WhaleNetworkGovernance is Ownable, EIP712 {
+	// TODO: remove this
     using SafeMath for uint256;
 
     enum ProposalStatus {
@@ -241,7 +49,7 @@ contract WhaleNetworkGovernance is Context, Ownable {
     mapping(uint256 => VoteStatus) _votes;
     mapping(uint256 => mapping(address => bool)) _proposalVotingStatus;
 
-    event ProposalCreated(address indexed creatorAddress, string title);
+    event ProposalCreated(address indexed creatorAddress, string title, string details, uint256 proposalId);
     event VoteCast(address indexed voter, uint256 weight, Vote status);
     event ProposalExecuted(uint256 proposalId);
     event ProposalForfeited(uint256 proposalId);
@@ -250,7 +58,7 @@ contract WhaleNetworkGovernance is Context, Ownable {
         IERC20 token,
         uint256 minForVoting,
         uint256 minForProposal
-    ) {
+    ) EIP712("WhalesNetwork", "v1.0.0") {
         require(
             address(token) != address(0),
             "WhaleNetworkGovernance: Token address can not be zero address"
@@ -339,8 +147,8 @@ contract WhaleNetworkGovernance is Context, Ownable {
             _nextProposalId,
             ProposalStatus.VALID
         );
-        _nextProposalId += 1;
-        emit ProposalCreated(_msgSender(), proposalTitle);
+        emit ProposalCreated(_msgSender(), proposalTitle, proposalDetails, _nextProposalId);
+		_nextProposalId += 1;
         return true;
     }
 
@@ -356,14 +164,11 @@ contract WhaleNetworkGovernance is Context, Ownable {
         return _proposals[proposalId];
     }
 
-    function castVote(uint256 proposalId, uint256 vote)
-        external
-        returns (bool)
-    {
+	function _castVote(address caster, uint256 proposalId, bool vote) private returns (bool) {
         //vote = 0 - NO
         //vote = 1 - YES
         require(
-            _token.balanceOf(_msgSender()) >= _minTokenForVoting,
+            _token.balanceOf(caster) >= _minTokenForVoting,
             "WhaleNetworkGovernance: Insufficient tokens for voting"
         );
         require(
@@ -371,7 +176,7 @@ contract WhaleNetworkGovernance is Context, Ownable {
             "WhaleNetworkGovernance: Invalid proposal Id"
         );
         require(
-            !_proposalVotingStatus[proposalId][_msgSender()],
+            !_proposalVotingStatus[proposalId][caster],
             "WhaleNetworkGovernance: You have already voted on this proposal"
         );
 
@@ -389,24 +194,45 @@ contract WhaleNetworkGovernance is Context, Ownable {
             "WhaleNetworkGovernance: Votes can be casted only on the valid proposals."
         );
 
-        _proposalVotingStatus[proposalId][_msgSender()] = true;
-        if (vote == 1) {
-            proposalVote.support += _token.balanceOf(_msgSender());
+        _proposalVotingStatus[proposalId][caster] = true;
+        if (vote) {
+            proposalVote.support += _token.balanceOf(caster);
             emit VoteCast(
-                _msgSender(),
-                _token.balanceOf(_msgSender()),
+                caster,
+                _token.balanceOf(caster),
                 Vote.FOR
             );
-        }
-        if (vote == 0) {
-            proposalVote.against += _token.balanceOf(_msgSender());
+        } else {
+            proposalVote.against += _token.balanceOf(caster);
             emit VoteCast(
-                _msgSender(),
-                _token.balanceOf(_msgSender()),
+                caster,
+                _token.balanceOf(caster),
                 Vote.AGAINST
             );
         }
-        return true;
+
+		return true;
+	}
+
+	function castVoteFor(bytes calldata sig, address caster, uint256 proposalId, bool vote) external returns (bool) {
+		bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(
+			keccak256("castVote(address caster,uint256 proposalId,bool vote)"),
+			caster,
+			proposalId,
+			vote
+		)));
+		address signer = ECDSA.recover(hash, sig);
+		require(signer == caster, "castVote: invalid sig");
+		require(signer != address(0), "castVote: invalid sig");
+
+		return _castVote(caster, proposalId, vote);
+	}
+
+    function castVote(uint256 proposalId, bool vote)
+        external
+        returns (bool)
+    {
+		return _castVote(_msgSender(), proposalId, vote);
     }
 
     // whether user has voted or not
