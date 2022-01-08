@@ -216,7 +216,7 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
 
 	function castVoteFor(bytes calldata sig, address caster, uint256 proposalId, bool vote) external returns (bool) {
 		bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(
-			keccak256("castVote(address caster,uint256 proposalId,bool vote)"),
+			keccak256("CastVote(address caster,uint256 proposalId,bool vote)"),
 			caster,
 			proposalId,
 			vote
