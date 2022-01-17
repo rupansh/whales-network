@@ -5,11 +5,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 // TODO: Remove this (not required in solidity 0.8)
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 
 
-contract WhaleNetworkGovernance is Ownable, EIP712 {
+contract WhaleNetworkGovernance is Ownable {
 	// TODO: remove this
     using SafeMath for uint256;
 
@@ -27,14 +25,16 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
     struct VoteStatus {
         uint256 against;
         uint256 support;
+		uint256 centralizedAgainst;
+		uint256 centralizedSupport;
     }
 
     struct Proposal {
         string title;
         string details;
         address creator;
-        uint256 startBlock;
-        uint256 endBlock;
+        uint256 startTime;
+        uint256 endTime;
         uint256 id;
         ProposalStatus status;
     }
@@ -51,6 +51,7 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
 
     event ProposalCreated(address indexed creatorAddress, string title, string details, uint256 proposalId);
     event VoteCast(address indexed voter, uint256 weight, Vote status);
+	event VoteCastCentralized(uint256 support, uint256 against);
     event ProposalExecuted(uint256 proposalId);
     event ProposalForfeited(uint256 proposalId);
 
@@ -58,7 +59,7 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
         IERC20 token,
         uint256 minForVoting,
         uint256 minForProposal
-    ) EIP712("WhalesNetwork", "v1.0.0") {
+    ) {
         require(
             address(token) != address(0),
             "WhaleNetworkGovernance: Token address can not be zero address"
@@ -130,7 +131,7 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
         );
 
         require(
-            start > block.number,
+            start > block.timestamp,
             "WhaleNetworkGovernance: Start time of proposal must be in future."
         );
         require(
@@ -164,6 +165,32 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
         return _proposals[proposalId];
     }
 
+	function castVoteBatchCentral(uint256 proposalId, uint256 support, uint256 against) external onlyOwner returns (bool) {
+		require(
+			proposalId > 0 && proposalId < _nextProposalId,
+			"WhaleNetworkGovernance: INvalid proposal id"
+		);
+		VoteStatus storage proposalVote = _votes[proposalId];
+		Proposal memory proposal = _proposals[proposalId];
+
+		require(
+			block.timestamp > proposal.startTime &&
+				block.timestamp < proposal.endTime,
+				"WhaleNetworkGovernance: Voting is not active on the proposal"
+		);
+
+		require(
+			proposal.status == ProposalStatus.VALID,
+			"WhaleNetworkGovernance: Votes can be casted only on the valid proposals"
+		);
+		proposalVote.centralizedAgainst += against;
+		proposalVote.centralizedSupport += support;
+
+		emit VoteCastCentralized(support, against);
+
+		return true;
+	}
+
 	function _castVote(address caster, uint256 proposalId, bool vote) private returns (bool) {
         //vote = 0 - NO
         //vote = 1 - YES
@@ -184,8 +211,8 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
         Proposal memory proposal = _proposals[proposalId];
 
         require(
-            block.number > proposal.startBlock &&
-                block.number < proposal.endBlock,
+            block.timestamp > proposal.startTime &&
+                block.timestamp < proposal.endTime,
             "WhaleNetworkGovernance: Voting is not active on the proposal"
         );
 
@@ -214,19 +241,6 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
 		return true;
 	}
 
-	function castVoteFor(bytes calldata sig, address caster, uint256 proposalId, bool vote) external returns (bool) {
-		bytes32 hash = _hashTypedDataV4(keccak256(abi.encode(
-			keccak256("CastVote(address caster,uint256 proposalId,bool vote)"),
-			caster,
-			proposalId,
-			vote
-		)));
-		address signer = ECDSA.recover(hash, sig);
-		require(signer == caster, "castVote: invalid sig");
-		require(signer != address(0), "castVote: invalid sig");
-
-		return _castVote(caster, proposalId, vote);
-	}
 
     function castVote(uint256 proposalId, bool vote)
         external
@@ -267,8 +281,8 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
         );
         Proposal memory proposal = _proposals[proposalId];
         if (
-            block.number > proposal.startBlock &&
-            block.number < proposal.endBlock
+            block.timestamp > proposal.startTime &&
+            block.timestamp < proposal.endTime
         ) {
             return true;
         } else {
@@ -318,7 +332,7 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
         );
         Proposal memory proposal = _proposals[proposalId];
         require(
-            block.number < proposal.startBlock,
+            block.timestamp < proposal.startTime,
             "WhaleNetworkGovernance: Voting on the proposal has started and it can not be forfeited"
         );
         require(
@@ -331,7 +345,7 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
         return true;
     }
 
-    function proposalStartBlock(uint256 proposalId)
+    function proposalStartTime(uint256 proposalId)
         public
         view
         returns (uint256)
@@ -341,10 +355,10 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
             "WhaleNetworkGovernance: Invalid proposal Id"
         );
         Proposal memory proposal = _proposals[proposalId];
-        return proposal.startBlock;
+        return proposal.startTime;
     }
 
-    function proposalEndBlock(uint256 proposalId)
+    function proposalEndTime(uint256 proposalId)
         public
         view
         returns (uint256)
@@ -354,7 +368,7 @@ contract WhaleNetworkGovernance is Ownable, EIP712 {
             "WhaleNetworkGovernance: Invalid proposal Id"
         );
         Proposal memory proposal = _proposals[proposalId];
-        return proposal.endBlock;
+        return proposal.endTime;
     }
 
     function getProposalStatus(uint256 proposalId)
